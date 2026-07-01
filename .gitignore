@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+*.db
+*.wav
+*.mp3
+.env
+recordings/
+mlflow_data/
+models/

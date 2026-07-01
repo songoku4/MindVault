@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MindVault</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #0B0F14; color: #E6EDF3; padding: 3rem 1.5rem; }
+    .container { max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 4px; }
+    .sub { color: #7C8B9B; font-size: 0.9rem; margin-bottom: 2rem; }
+    .card { background: #11161D; border: 1px solid #1F2733; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.25rem; }
+    .card h2 { font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; color: #4FD1C5; }
+    button { background: #4FD1C5; color: #0B0F14; border: none; padding: 0.65rem 1.3rem; border-radius: 6px; font-weight: 600; font-size: 0.8rem; cursor: pointer; margin-right: 8px; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    button.stop { background: #F87171; color: #0B0F14; }
+    .status { font-size: 0.8rem; color: #7C8B9B; margin-top: 0.75rem; font-family: monospace; }
+    .result { margin-top: 1rem; background: #161C25; border-left: 2px solid #4FD1C5; padding: 0.85rem 1rem; border-radius: 0 6px 6px 0; font-size: 0.85rem; line-height: 1.6; display: none; }
+    .mood-bar { height: 6px; background: #1F2733; border-radius: 3px; margin: 8px 0; }
+    .mood-fill { height: 6px; border-radius: 3px; background: #4FD1C5; transition: width 0.5s; }
+    .meta { display: flex; gap: 1.5rem; margin-top: 0.75rem; font-size: 0.75rem; color: #7C8B9B; font-family: monospace; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>MindVault</h1>
+  <p class="sub">Speak freely for 60 seconds. How are you feeling today?</p>
+
+  <div class="card">
+    <h2>01 — Record your check-in</h2>
+    <button id="rec-btn" onclick="startRecording()">Start recording</button>
+    <button id="stop-btn" class="stop" onclick="stopRecording()" disabled>Stop</button>
+    <div class="status" id="status">Ready</div>
+    <div class="result" id="result">
+      <div id="transcript"></div>
+      <div class="mood-bar"><div class="mood-fill" id="mood-fill" style="width:0%"></div></div>
+      <div class="meta" id="meta"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let mediaRecorder, chunks = [], stream;
+
+async function startRecording() {
+  stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = new MediaRecorder(stream);
+  chunks = [];
+  mediaRecorder.ondataavailable = e => chunks.push(e.data);
+  mediaRecorder.start();
+  document.getElementById('rec-btn').disabled = true;
+  document.getElementById('stop-btn').disabled = false;
+  document.getElementById('status').textContent = 'Recording... speak freely';
+}
+
+async function stopRecording() {
+  mediaRecorder.stop();
+  stream.getTracks().forEach(t => t.stop());
+  document.getElementById('rec-btn').disabled = false;
+  document.getElementById('stop-btn').disabled = true;
+  document.getElementById('status').textContent = 'Processing...';
+
+  mediaRecorder.onstop = async () => {
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const form = new FormData();
+    form.append('file', blob, 'checkin.webm');
+
+    const res = await fetch('/checkin', { method: 'POST', body: form });
+    const data = await res.json();
+
+    document.getElementById('status').textContent = 'Done';
+    document.getElementById('transcript').textContent = data.transcript;
+    document.getElementById('mood-fill').style.width = (data.composite_mood * 100) + '%';
+    document.getElementById('meta').innerHTML =
+      `<span>mood: ${(data.composite_mood * 100).toFixed(0)}%</span>` +
+      `<span>acoustic: ${(data.acoustic_mood * 100).toFixed(0)}%</span>` +
+      `<span>sentiment: ${data.sentiment_label}</span>` +
+      `<span>pitch: ${data.pitch_hz}Hz</span>`;
+    document.getElementById('result').style.display = 'block';
+  };
+}
+</script>
+</body>
+</html>
