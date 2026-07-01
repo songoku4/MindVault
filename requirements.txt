@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-multipart
+sqlalchemy
+aiofiles
+faster-whisper
+librosa
+soundfile
+numpy
+transformers
+torch
+mlflow
+prometheus-fastapi-instrumentator
+prometheus-client
+pydub
