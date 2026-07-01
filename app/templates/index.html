@@ -2,46 +2,349 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MindVault</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: sans-serif; background: #0B0F14; color: #E6EDF3; padding: 3rem 1.5rem; }
-    .container { max-width: 640px; margin: 0 auto; }
-    h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 4px; }
-    .sub { color: #7C8B9B; font-size: 0.9rem; margin-bottom: 2rem; }
-    .card { background: #11161D; border: 1px solid #1F2733; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.25rem; }
-    .card h2 { font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; color: #4FD1C5; }
-    button { background: #4FD1C5; color: #0B0F14; border: none; padding: 0.65rem 1.3rem; border-radius: 6px; font-weight: 600; font-size: 0.8rem; cursor: pointer; margin-right: 8px; }
-    button:disabled { opacity: 0.4; cursor: not-allowed; }
-    button.stop { background: #F87171; color: #0B0F14; }
-    .status { font-size: 0.8rem; color: #7C8B9B; margin-top: 0.75rem; font-family: monospace; }
-    .result { margin-top: 1rem; background: #161C25; border-left: 2px solid #4FD1C5; padding: 0.85rem 1rem; border-radius: 0 6px 6px 0; font-size: 0.85rem; line-height: 1.6; display: none; }
-    .mood-bar { height: 6px; background: #1F2733; border-radius: 3px; margin: 8px 0; }
-    .mood-fill { height: 6px; border-radius: 3px; background: #4FD1C5; transition: width 0.5s; }
-    .meta { display: flex; gap: 1.5rem; margin-top: 0.75rem; font-size: 0.75rem; color: #7C8B9B; font-family: monospace; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0B0F14;
+      --surface: #11161D;
+      --surface-2: #161C25;
+      --border: #1F2733;
+      --text: #E6EDF3;
+      --muted: #7C8B9B;
+      --dim: #4D5A68;
+      --accent: #4FD1C5;
+      --accent-dim: rgba(79,209,197,0.12);
+      --positive: #4FD1C5;
+      --neutral: #EAB308;
+      --negative: #F87171;
+      --radius: 6px;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      background-image: radial-gradient(circle at 20% 0%, rgba(79,209,197,0.05) 0%, transparent 50%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+
+    /* Header */
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+    .header-left h1 { font-size: 1.3rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+    .header-left p { color: var(--muted); font-size: 0.85rem; margin-top: 3px; }
+    .status-pill { display: flex; align-items: center; gap: 7px; font-size: 0.7rem; color: var(--muted); background: var(--surface); border: 1px solid var(--border); padding: 5px 12px; border-radius: 100px; font-family: monospace; text-transform: uppercase; letter-spacing: 0.05em; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(79,209,197,0.4)} 70%{box-shadow:0 0 0 6px transparent} 100%{box-shadow:0 0 0 0 transparent} }
+
+    /* Grid layout */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+
+    /* Cards */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; }
+    .card-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; font-family: monospace; }
+    .card-value { font-size: 2rem; font-weight: 500; color: var(--text); }
+    .card-sub { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+    .card-accent { border-left: 2px solid var(--accent); }
+
+    /* Stat cards */
+    .stat-positive { color: var(--positive); }
+    .stat-neutral { color: var(--neutral); }
+    .stat-negative { color: var(--negative); }
+
+    /* Chart card */
+    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .chart-title { font-size: 0.85rem; font-weight: 500; }
+    .chart-legend { display: flex; gap: 1rem; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--muted); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* Record section */
+    .record-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.5rem; margin-bottom: 1rem; }
+    .step-label { display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
+    .step-num { font-size: 0.7rem; font-weight: 600; color: var(--accent); background: var(--accent-dim); width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-family: monospace; }
+    .step-title { font-size: 0.95rem; font-weight: 500; }
+    .btn { font-family: monospace; font-size: 0.8rem; font-weight: 600; background: var(--accent); color: #0B0F14; border: none; padding: 0.65rem 1.3rem; border-radius: var(--radius); cursor: pointer; letter-spacing: 0.02em; text-transform: uppercase; transition: opacity 0.15s; }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-stop { background: var(--negative); }
+    .status-line { font-size: 0.78rem; color: var(--muted); margin-top: 0.75rem; font-family: monospace; min-height: 1.2rem; }
+    .status-line.success { color: var(--accent); }
+    .status-line.error { color: var(--negative); }
+
+    /* Result box */
+    .result-box { margin-top: 1rem; background: var(--surface-2); border-left: 2px solid var(--accent); border-radius: 0 var(--radius) var(--radius) 0; padding: 1rem 1.1rem; display: none; }
+    .result-transcript { font-size: 0.88rem; line-height: 1.65; margin-bottom: 0.75rem; }
+    .mood-bar-wrap { margin: 8px 0; }
+    .mood-bar { height: 5px; background: var(--border); border-radius: 3px; }
+    .mood-fill { height: 5px; border-radius: 3px; background: var(--accent); transition: width 0.6s ease; }
+    .result-meta { display: flex; gap: 1.5rem; margin-top: 0.6rem; font-size: 0.72rem; color: var(--muted); font-family: monospace; }
+
+    /* History */
+    .history-list { display: flex; flex-direction: column; gap: 8px; margin-top: 1rem; max-height: 340px; overflow-y: auto; }
+    .history-item { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem 1rem; cursor: pointer; transition: border-color 0.15s; }
+    .history-item:hover { border-color: var(--dim); }
+    .history-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .history-date { font-size: 0.72rem; color: var(--muted); font-family: monospace; }
+    .history-mood { font-size: 0.72rem; font-family: monospace; }
+    .history-transcript { font-size: 0.8rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badge { font-size: 0.65rem; padding: 2px 7px; border-radius: 10px; font-family: monospace; }
+    .badge-positive { background: rgba(79,209,197,0.15); color: var(--positive); }
+    .badge-neutral { background: rgba(234,179,8,0.15); color: var(--neutral); }
+    .badge-negative { background: rgba(248,113,113,0.15); color: var(--negative); }
+
+    /* Divider insight */
+    .insight { background: var(--accent-dim); border: 1px solid rgba(79,209,197,0.2); border-radius: var(--radius); padding: 0.75rem 1rem; font-size: 0.82rem; color: var(--accent); margin-bottom: 1rem; font-family: monospace; }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 2rem; color: var(--dim); font-size: 0.85rem; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
   </style>
 </head>
 <body>
 <div class="container">
-  <h1>MindVault</h1>
-  <p class="sub">Speak freely for 60 seconds. How are you feeling today?</p>
 
-  <div class="card">
-    <h2>01 — Record your check-in</h2>
-    <button id="rec-btn" onclick="startRecording()">Start recording</button>
-    <button id="stop-btn" class="stop" onclick="stopRecording()" disabled>Stop</button>
-    <div class="status" id="status">Ready</div>
-    <div class="result" id="result">
-      <div id="transcript"></div>
-      <div class="mood-bar"><div class="mood-fill" id="mood-fill" style="width:0%"></div></div>
-      <div class="meta" id="meta"></div>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>MindVault</h1>
+      <p>Passive wellness monitoring — acoustic + semantic analysis</p>
+    </div>
+    <div class="status-pill"><span class="dot"></span>system online</div>
+  </div>
+
+  <!-- Insight bar -->
+  <div class="insight" id="insight-bar">Loading your wellness data...</div>
+
+  <!-- Stat cards -->
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-label">Today's mood</div>
+      <div class="card-value" id="stat-today">--</div>
+      <div class="card-sub" id="stat-today-label">no check-in yet</div>
+    </div>
+    <div class="card">
+      <div class="card-label">7-day average</div>
+      <div class="card-value" id="stat-avg">--</div>
+      <div class="card-sub" id="stat-avg-label">composite mood</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Total check-ins</div>
+      <div class="card-value" id="stat-total">--</div>
+      <div class="card-sub">all time</div>
     </div>
   </div>
+
+  <!-- Charts -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <span class="chart-title">Mood trend — last 14 check-ins</span>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#4FD1C5"></div>composite</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#818CF8"></div>acoustic</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#F59E0B"></div>sentiment</div>
+      </div>
+    </div>
+    <canvas id="moodChart" height="120"></canvas>
+  </div>
+
+  <!-- Record -->
+  <div class="record-card">
+    <div class="step-label">
+      <span class="step-num">01</span>
+      <span class="step-title">Record today's check-in</span>
+    </div>
+    <button class="btn" id="rec-btn" onclick="startRecording()">Start recording</button>
+    <button class="btn btn-stop" id="stop-btn" onclick="stopRecording()" disabled style="margin-left:8px">Stop</button>
+    <div class="status-line" id="status">Ready — speak freely for 30-60 seconds</div>
+    <div class="result-box" id="result-box">
+      <div class="result-transcript" id="result-transcript"></div>
+      <div class="mood-bar-wrap">
+        <div class="mood-bar"><div class="mood-fill" id="mood-fill" style="width:0%"></div></div>
+      </div>
+      <div class="result-meta" id="result-meta"></div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="card">
+    <div class="chart-header">
+      <span class="chart-title">Check-in history</span>
+      <span style="font-size:0.72rem;color:var(--muted);font-family:monospace" id="history-count"></span>
+    </div>
+    <div class="history-list" id="history-list">
+      <div class="empty">No check-ins yet. Record your first one above.</div>
+    </div>
+  </div>
+
 </div>
 
 <script>
 let mediaRecorder, chunks = [], stream;
+let chart = null;
 
+// ── Load dashboard on page open ──
+window.addEventListener('load', loadDashboard);
+
+async function loadDashboard() {
+  try {
+    const res = await fetch('/history?limit=30');
+    const data = await res.json();
+    renderStats(data);
+    renderChart(data);
+    renderHistory(data);
+    renderInsight(data);
+  } catch(e) {
+    document.getElementById('insight-bar').textContent = 'Could not load data.';
+  }
+}
+
+function renderStats(data) {
+  document.getElementById('stat-total').textContent = data.length;
+
+  if (data.length === 0) return;
+
+  // Today's mood = most recent
+  const latest = data[0];
+  const todayPct = Math.round(latest.composite_mood * 100);
+  document.getElementById('stat-today').textContent = todayPct + '%';
+  document.getElementById('stat-today-label').className = 'card-sub stat-' + latest.sentiment_label;
+  document.getElementById('stat-today-label').textContent = latest.sentiment_label;
+
+  // 7-day average
+  const recent = data.slice(0, 7);
+  const avg = recent.reduce((s, e) => s + e.composite_mood, 0) / recent.length;
+  document.getElementById('stat-avg').textContent = Math.round(avg * 100) + '%';
+}
+
+function renderChart(data) {
+  if (data.length === 0) return;
+
+  const entries = data.slice(0, 14).reverse();
+  const labels = entries.map(e => {
+    const d = new Date(e.timestamp);
+    return d.toLocaleDateString('en-AU', { month: 'short', day: 'numeric' });
+  });
+
+  const ctx = document.getElementById('moodChart').getContext('2d');
+  if (chart) chart.destroy();
+
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Composite mood',
+          data: entries.map(e => Math.round(e.composite_mood * 100)),
+          borderColor: '#4FD1C5',
+          backgroundColor: 'rgba(79,209,197,0.08)',
+          borderWidth: 2,
+          pointRadius: 4,
+          pointBackgroundColor: '#4FD1C5',
+          tension: 0.4,
+          fill: true,
+        },
+        {
+          label: 'Acoustic mood',
+          data: entries.map(e => Math.round((e.acoustic_mood || 0) * 100)),
+          borderColor: '#818CF8',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          pointRadius: 3,
+          pointBackgroundColor: '#818CF8',
+          tension: 0.4,
+          borderDash: [4, 4],
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          min: 0, max: 100,
+          grid: { color: '#1F2733' },
+          ticks: { color: '#7C8B9B', font: { size: 11 }, callback: v => v + '%' }
+        },
+        x: {
+          grid: { color: '#1F2733' },
+          ticks: { color: '#7C8B9B', font: { size: 11 } }
+        }
+      }
+    }
+  });
+}
+
+function renderHistory(data) {
+  const list = document.getElementById('history-list');
+  document.getElementById('history-count').textContent = data.length + ' entries';
+
+  if (data.length === 0) {
+    list.innerHTML = '<div class="empty">No check-ins yet. Record your first one above.</div>';
+    return;
+  }
+
+  list.innerHTML = data.map(e => {
+    const d = new Date(e.timestamp);
+    const dateStr = d.toLocaleDateString('en-AU', { weekday:'short', month:'short', day:'numeric' });
+    const timeStr = d.toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit' });
+    const moodPct = Math.round(e.composite_mood * 100);
+    const label = e.sentiment_label || 'neutral';
+    const moodColor = label === 'positive' ? '#4FD1C5' : label === 'negative' ? '#F87171' : '#EAB308';
+    return `
+      <div class="history-item">
+        <div class="history-row">
+          <span class="history-date">${dateStr} ${timeStr}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="badge badge-${label}">${label}</span>
+            <span class="history-mood" style="color:${moodColor}">${moodPct}%</span>
+          </div>
+        </div>
+        <div class="history-transcript">${e.transcript || 'No transcript'}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderInsight(data) {
+  const bar = document.getElementById('insight-bar');
+  if (data.length === 0) {
+    bar.textContent = '> No check-ins yet. Record your first to start tracking.';
+    return;
+  }
+  if (data.length === 1) {
+    bar.textContent = `> First check-in logged. Mood: ${Math.round(data[0].composite_mood * 100)}%. Keep going — trends appear after 3+ check-ins.`;
+    return;
+  }
+
+  const latest = data[0].composite_mood;
+  const previous = data[1].composite_mood;
+  const diff = Math.round((latest - previous) * 100);
+  const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→';
+  const label = diff > 5 ? 'improving' : diff < -5 ? 'declining' : 'stable';
+
+  // Acoustic vs text divergence
+  const acoustic = data[0].acoustic_mood || 0;
+  const sentiment = data[0].composite_mood;
+  const diverge = Math.abs(acoustic - sentiment);
+  const divergeNote = diverge > 0.2 
+    ? ' | Voice energy and word sentiment diverge — emotionally complex check-in.'
+    : '';
+
+  bar.textContent = `> Mood ${arrow} ${Math.abs(diff)}% from last check-in (${label})${divergeNote}`;
+}
+
+// ── Recording ──
 async function startRecording() {
   stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   mediaRecorder = new MediaRecorder(stream);
@@ -51,6 +354,7 @@ async function startRecording() {
   document.getElementById('rec-btn').disabled = true;
   document.getElementById('stop-btn').disabled = false;
   document.getElementById('status').textContent = 'Recording... speak freely';
+  document.getElementById('status').className = 'status-line';
 }
 
 async function stopRecording() {
@@ -58,25 +362,44 @@ async function stopRecording() {
   stream.getTracks().forEach(t => t.stop());
   document.getElementById('rec-btn').disabled = false;
   document.getElementById('stop-btn').disabled = true;
-  document.getElementById('status').textContent = 'Processing...';
+  document.getElementById('status').textContent = 'Processing — this takes 20-30 seconds...';
 
   mediaRecorder.onstop = async () => {
     const blob = new Blob(chunks, { type: 'audio/webm' });
     const form = new FormData();
     form.append('file', blob, 'checkin.webm');
 
-    const res = await fetch('/checkin', { method: 'POST', body: form });
-    const data = await res.json();
+    try {
+      const res = await fetch('/checkin', { method: 'POST', body: form });
+      const data = await res.json();
 
-    document.getElementById('status').textContent = 'Done';
-    document.getElementById('transcript').textContent = data.transcript;
-    document.getElementById('mood-fill').style.width = (data.composite_mood * 100) + '%';
-    document.getElementById('meta').innerHTML =
-      `<span>mood: ${(data.composite_mood * 100).toFixed(0)}%</span>` +
-      `<span>acoustic: ${(data.acoustic_mood * 100).toFixed(0)}%</span>` +
-      `<span>sentiment: ${data.sentiment_label}</span>` +
-      `<span>pitch: ${data.pitch_hz}Hz</span>`;
-    document.getElementById('result').style.display = 'block';
+      if (!res.ok) {
+        document.getElementById('status').textContent = data.detail || 'Error processing check-in';
+        document.getElementById('status').className = 'status-line error';
+        return;
+      }
+
+      document.getElementById('status').textContent = 'Check-in saved';
+      document.getElementById('status').className = 'status-line success';
+
+      const box = document.getElementById('result-box');
+      document.getElementById('result-transcript').textContent = data.transcript;
+      document.getElementById('mood-fill').style.width = (data.composite_mood * 100) + '%';
+      document.getElementById('result-meta').innerHTML =
+        `<span>mood: ${Math.round(data.composite_mood * 100)}%</span>` +
+        `<span>acoustic: ${Math.round(data.acoustic_mood * 100)}%</span>` +
+        `<span>sentiment: ${data.sentiment_label}</span>` +
+        `<span>pitch: ${data.pitch_hz}Hz</span>` +
+        `<span>${Math.round(data.duration_sec)}s</span>`;
+      box.style.display = 'block';
+
+      // Refresh dashboard
+      await loadDashboard();
+
+    } catch(e) {
+      document.getElementById('status').textContent = 'Network error — is the server running?';
+      document.getElementById('status').className = 'status-line error';
+    }
   };
 }
 </script>
