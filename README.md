@@ -8,9 +8,9 @@
 
 I built MindVault because I wanted to explore what happens when you stop asking people how they feel and start *listening* to how they sound.
 
-Most mood tracking apps rely on self-reported scores — tap a number, pick an emoji, done. The problem is that humans are notoriously bad at accurately reporting their own emotional state, especially under stress. MindVault takes a different approach: you speak freely for 60 seconds, and the system analyses *both* what you said and how you said it. Pitch, energy, speech rate, MFCCs from the acoustic layer. Sentiment, keyword salience, and emotional tone from the text layer. Both signals are fused into a composite mood score that gets tracked over time.
+Most mood tracking apps rely on self-reported scores: tap a number, pick an emoji, done. The problem is that humans are notoriously bad at accurately reporting their own emotional state, especially under stress. MindVault takes a different approach: you speak freely for 60 seconds, and the system analyses *both* what you said and how you said it. Pitch, energy, speech rate, MFCCs from the acoustic layer. Sentiment, keyword salience, and emotional tone from the text layer. Both signals are fused into a composite mood score that gets tracked over time.
 
-The thing I find genuinely interesting — and what I think makes this worth demoing — is the divergence signal. When your acoustic mood is high (energetic, elevated pitch) but your text sentiment is low (negative words, anxious content), the system flags that as an emotionally complex session. That's clinically meaningful. It's the difference between someone who *sounds* fine and someone who *is* fine.
+The thing I find genuinely interesting and what I think makes this worth demoing is the divergence signal. When your acoustic mood is high (energetic, elevated pitch) but your text sentiment is low (negative words, anxious content), the system flags that as an emotionally complex session. That's clinically meaningful. It's the difference between someone who *sounds* fine and someone who *is* fine.
 
 ---
 
@@ -90,7 +90,7 @@ The thing I find genuinely interesting — and what I think makes this worth dem
 
 ---
 
-## The acoustic + semantic fusion — why it matters
+## The acoustic + semantic fusion: why it matters
 
 Most sentiment tools only read text. But speech carries emotional information that words alone don't capture.
 
