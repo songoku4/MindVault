@@ -2,24 +2,40 @@ from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
-import os, tempfile, json
+import os
+import tempfile
+import mlflow
 
 from app.database import init_db, get_db, CheckIn
-from app.audio import transcribe, extract_acoustic_features
+from app.audio import transcribe, extract_acoustic_features, analyse_sentiment
 
-app = FastAPI(title="MindVault — Mental Wellness Monitor")
+MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5001")
 
+app = FastAPI(title="MindVault")
 os.makedirs("recordings", exist_ok=True)
+
+
+def setup_mlflow():
+    try:
+        mlflow.set_tracking_uri(MLFLOW_URI)
+        mlflow.set_experiment("mindvault")
+        print(f"[MLFLOW] Connected to {MLFLOW_URI}")
+    except Exception as e:
+        print(f"[MLFLOW] Setup failed (offline mode): {e}")
+
 
 @app.on_event("startup")
 def startup():
     init_db()
-    print("[MINDVAULT] Database ready")
+    setup_mlflow()
+    print("[MINDVAULT] Ready")
+
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
     with open("app/templates/index.html") as f:
         return f.read()
+
 
 @app.post("/checkin")
 async def checkin(
@@ -29,7 +45,7 @@ async def checkin(
     db: Session = Depends(get_db)
 ):
     if not file.filename.endswith((".wav", ".mp3", ".m4a", ".webm", ".ogg")):
-        raise HTTPException(400, "Audio file required (.wav, .mp3, .m4a, .webm, .ogg)")
+        raise HTTPException(400, "Audio file required")
 
     contents = await file.read()
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
@@ -37,58 +53,66 @@ async def checkin(
         tmp_path = f.name
 
     try:
-        print(f"[CHECKIN] Processing audio for user={user_id}")
+        print(f"[CHECKIN] Processing for user={user_id}")
 
-        # Transcribe
         transcription = transcribe(tmp_path)
         print(f"[CHECKIN] Transcript: {transcription['transcript'][:80]}...")
 
-        # Acoustic features
         acoustic = extract_acoustic_features(tmp_path)
+        sentiment = analyse_sentiment(transcription["transcript"])
 
-        # Simple text sentiment (we'll upgrade this on Day 5)
-        transcript_lower = transcription["transcript"].lower()
-        positive_words = ["good","great","happy","well","better","fine","excited","calm","peaceful","motivated"]
-        negative_words = ["bad","tired","sad","anxious","stressed","worried","awful","terrible","exhausted","low"]
-        pos = sum(1 for w in positive_words if w in transcript_lower)
-        neg = sum(1 for w in negative_words if w in transcript_lower)
-        sentiment_score = round((pos - neg) / max(pos + neg, 1) * 0.5 + 0.5, 4)
-        sentiment_label = "positive" if sentiment_score > 0.55 else "negative" if sentiment_score < 0.45 else "neutral"
+        composite_mood = round(
+            acoustic["acoustic_mood"] * 0.5 + sentiment["score"] * 0.5, 4
+        )
 
-        # Composite mood (fuse acoustic + text)
-        composite_mood = round(acoustic["acoustic_mood"] * 0.5 + sentiment_score * 0.5, 4)
-
-        # Save to database
         entry = CheckIn(
             user_id=user_id,
             timestamp=datetime.utcnow(),
             transcript=transcription["transcript"],
             duration_sec=transcription["duration"],
             notes=notes,
-            sentiment_label=sentiment_label,
-            sentiment_score=sentiment_score,
+            sentiment_label=sentiment["label"],
+            sentiment_score=sentiment["score"],
             composite_mood=composite_mood,
-            **{k: acoustic[k] for k in ["pitch_mean","pitch_std","energy_mean","speech_rate","mfcc_mean","acoustic_mood"]}
+            **{k: acoustic[k] for k in [
+                "pitch_mean", "pitch_std", "energy_mean",
+                "speech_rate", "mfcc_mean", "acoustic_mood"
+            ]}
         )
         db.add(entry)
         db.commit()
         db.refresh(entry)
 
-        print(f"[CHECKIN] Saved entry id={entry.id} mood={composite_mood}")
+        try:
+            with mlflow.start_run(run_name=f"checkin_{user_id}"):
+                mlflow.log_param("user_id", user_id)
+                mlflow.log_param("sentiment_label", sentiment["label"])
+                mlflow.log_metric("composite_mood", composite_mood)
+                mlflow.log_metric("acoustic_mood", acoustic["acoustic_mood"])
+                mlflow.log_metric("sentiment_score", sentiment["score"])
+                mlflow.log_metric("pitch_hz", acoustic["pitch_mean"])
+                mlflow.log_metric("energy", acoustic["energy_mean"])
+                mlflow.log_metric("duration_sec", transcription["duration"])
+        except Exception as e:
+            print(f"[MLFLOW] Logging skipped: {e}")
+
+        print(f"[CHECKIN] Saved id={entry.id} mood={composite_mood}")
 
         return {
             "id": entry.id,
             "transcript": transcription["transcript"],
             "duration_sec": transcription["duration"],
-            "sentiment_label": sentiment_label,
-            "sentiment_score": sentiment_score,
+            "sentiment_label": sentiment["label"],
+            "sentiment_score": sentiment["score"],
             "acoustic_mood": acoustic["acoustic_mood"],
             "composite_mood": composite_mood,
             "pitch_hz": round(acoustic["pitch_mean"], 1),
             "energy": round(acoustic["energy_mean"], 5),
         }
+
     finally:
         os.unlink(tmp_path)
+
 
 @app.get("/history")
 def history(user_id: str = "default", limit: int = 30, db: Session = Depends(get_db)):
@@ -111,6 +135,7 @@ def history(user_id: str = "default", limit: int = 30, db: Session = Depends(get
         }
         for e in entries
     ]
+
 
 @app.get("/health")
 def health():

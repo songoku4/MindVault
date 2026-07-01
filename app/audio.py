@@ -4,6 +4,8 @@ import subprocess
 import numpy as np
 import librosa
 from faster_whisper import WhisperModel
+from transformers import pipeline
+
 
 FFMPEG_PATH = r"C:\Users\Aaditya Sharma\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg.Essentials_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-essentials_build\bin\ffmpeg.exe"
 
@@ -89,3 +91,38 @@ def extract_acoustic_features(audio_path: str) -> dict:
         "mfcc_mean":     json.dumps([round(x, 4) for x in mfcc_means]),
         "acoustic_mood": acoustic_mood
     }
+
+from transformers import pipeline
+
+_sentiment_model = None
+
+def get_sentiment():
+    global _sentiment_model
+    if _sentiment_model is None:
+        print("[SENTIMENT] Loading model...")
+        _sentiment_model = pipeline(
+            "sentiment-analysis",
+            model="distilbert-base-uncased-finetuned-sst-2-english",
+            device=-1  # CPU
+        )
+        print("[SENTIMENT] Model ready")
+    return _sentiment_model
+
+def analyse_sentiment(text: str) -> dict:
+    if not text or len(text.strip()) < 3:
+        return {"label": "neutral", "score": 0.5}
+    
+    model = get_sentiment()
+    result = model(text[:512])[0]  # truncate to model max
+    
+    label = result["label"].lower()  # POSITIVE or NEGATIVE
+    raw_score = result["score"]
+    
+    # Convert to 0-1 scale where 0.5 = neutral
+    if label == "positive":
+        score = 0.5 + (raw_score - 0.5) * 0.5
+    else:
+        score = 0.5 - (raw_score - 0.5) * 0.5
+
+    print(f"[SENTIMENT] {label} ({raw_score:.3f}) → score={score:.3f}")
+    return {"label": label, "score": round(score, 4)}
