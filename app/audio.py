@@ -5,9 +5,18 @@ import numpy as np
 import librosa
 from faster_whisper import WhisperModel
 from transformers import pipeline
+import shutil
 
 
-FFMPEG_PATH = r"C:\Users\Aaditya Sharma\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg.Essentials_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-essentials_build\bin\ffmpeg.exe"
+
+_WIN_FFMPEG = r"C:\Users\Aaditya Sharma\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg.Essentials_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-essentials_build\bin\ffmpeg.exe"
+
+if os.path.exists(_WIN_FFMPEG):
+    FFMPEG_PATH = _WIN_FFMPEG
+else:
+    FFMPEG_PATH = shutil.which("ffmpeg") or "ffmpeg"
+
+print(f"[AUDIO] ffmpeg: {FFMPEG_PATH}")
 
 WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL", "tiny")
 _model = None
@@ -91,8 +100,6 @@ def extract_acoustic_features(audio_path: str) -> dict:
         "mfcc_mean":     json.dumps([round(x, 4) for x in mfcc_means]),
         "acoustic_mood": acoustic_mood
     }
-
-from transformers import pipeline
 
 _sentiment_model = None
 
