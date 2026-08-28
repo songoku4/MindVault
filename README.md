@@ -18,7 +18,7 @@ The thing I find genuinely interesting and what I think makes this worth demoing
 
 - **Voice check-in**: record 30-60 seconds of free speech daily
 - **Acoustic analysis**: extract pitch (Hz), energy (RMS), speech rate, MFCCs via librosa
-- **Transcription** — Whisper (local, no data leaves your machine)
+- **Transcription**: Whisper (local, no data leaves your machine)
 - **Sentiment analysis** — DistilBERT fine-tuned on SST-2 via HuggingFace
 - **Composite mood scoring** — acoustic and semantic signals fused into a single 0-1 score
 - **Trend dashboard** — 14-day mood chart, stat cards, insight engine, check-in history
