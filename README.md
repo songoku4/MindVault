@@ -2,7 +2,7 @@
 
 **A passive longitudinal mental wellness monitoring system using multimodal acoustic and semantic analysis.**
 
-*Built by Aaditya Sharma — Senior DevOps and MLOps Engineer, Master of IT (AI) student at the University of Melbourne.*
+*Built by Aaditya Sharma: Senior DevOps and MLOps Engineer, Master of IT (AI) student at the University of Melbourne.*
 
 ---
 
